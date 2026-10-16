@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Research Agent · Dashboard</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #12151c;
+    --panel-2: #171b24;
+    --border: #262b36;
+    --text: #e6e9f0;
+    --text-dim: #8b93a7;
+    --accent: #6c8cff;
+    --accent-dim: #3d4b85;
+    --good: #4ade80;
+    --warn: #fbbf24;
+    --tool: #c084fc;
+    --mono: "SF Mono", "Fira Code", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #11131a 0%, #0b0d12 100%);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0.2px;
+  }
+
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 5px 12px;
+    border-radius: 999px;
+  }
+
+  .status-pill .led { width: 7px; height: 7px; border-radius: 50%; background: #4b5468; }
+  .status-pill.live .led { background: var(--good); box-shadow: 0 0 6px var(--good); animation: pulse 1.4s infinite; }
+  .status-pill.working .led { background: var(--warn); box-shadow: 0 0 6px var(--warn); animation: pulse 1.4s infinite; }
+
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .shell {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px 28px 60px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .controls input[type=text] {
+    flex: 1;
+    min-width: 260px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    outline: none;
+  }
+  .controls input[type=text]:focus { border-color: var(--accent); }
+
+  button.run-btn {
+    background: var(--accent);
+    color: #0b0d12;
+    border: none;
+    font-weight: 600;
+    padding: 11px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  button.run-btn:hover { filter: brightness(1.08); }
+  button.run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; margin-top: 2px; }
+  .chip {
+    font-size: 12px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    background: var(--panel);
+  }
+  .chip:hover { border-color: var(--accent); color: var(--text); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr;
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-header h2 {
+    font-size: 13px;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+  .card-body { padding: 16px 18px; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .stat .label { font-size: 11.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat .value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .value.accent { color: var(--accent); }
+  .stat .value.good { color: var(--good); }
+  .stat .value.tool { color: var(--tool); }
+
+  /* Timeline */
+  .timeline { max-height: 560px; overflow-y: auto; padding-right: 4px; }
+  .timeline::-webkit-scrollbar { width: 6px; }
+  .timeline::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .step {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--border);
+    animation: slideIn 0.35s ease;
+  }
+  .step:last-child { border-bottom: none; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .step-icon {
+    flex: none;
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    margin-top: 2px;
+  }
+  .step-icon.plan { background: rgba(108,140,255,0.15); color: var(--accent); }
+  .step-icon.thought { background: rgba(251,191,36,0.15); color: var(--warn); }
+  .step-icon.tool_call { background: rgba(192,132,252,0.15); color: var(--tool); }
+  .step-icon.tool_result { background: rgba(74,222,128,0.15); color: var(--good); }
+  .step-icon.report { background: rgba(108,140,255,0.2); color: var(--accent); }
+
+  .step-content { flex: 1; min-width: 0; }
+  .step-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-dim); margin-bottom: 3px; display: flex; gap: 8px; align-items: center;
+  }
+  .step-text { font-size: 13.5px; line-height: 1.5; color: var(--text); }
+  .step-text code {
+    font-family: var(--mono); background: var(--panel-2);
+    padding: 1px 6px; border-radius: 5px; font-size: 12.5px; color: var(--tool);
+  }
+
+  .result-list { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+  .result-item {
+    font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px;
+  }
+  .result-item .r-title { color: var(--text); font-weight: 600; }
+  .result-item .r-url { color: var(--text-dim); font-family: var(--mono); font-size: 11px; margin-top: 2px; }
+  .result-item .r-cite {
+    display: inline-block; background: var(--accent-dim); color: #c9d4ff;
+    font-size: 10.5px; padding: 1px 6px; border-radius: 999px; margin-right: 6px;
+  }
+
+  /* Report */
+  .report-body { font-size: 14px; line-height: 1.7; }
+  .report-body h1 { font-size: 19px; margin: 0 0 10px; }
+  .report-body h2 { font-size: 15px; margin: 18px 0 8px; color: var(--accent); }
+  .report-body p { margin: 0 0 10px; color: #d4d8e2; }
+  .report-empty {
+    color: var(--text-dim); font-size: 13.5px; text-align: center;
+    padding: 50px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .report-empty .big-icon { font-size: 30px; opacity: 0.5; }
+
+  .sources-grid { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .source-card {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  .source-num {
+    flex: none; width: 22px; height: 22px; border-radius: 6px;
+    background: var(--accent-dim); color: #c9d4ff; font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .source-card a { color: var(--text); text-decoration: none; font-weight: 600; font-size: 13px; }
+  .source-card a:hover { color: var(--accent); }
+  .source-card .s-url { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  .footer-note {
+    margin-top: 22px; text-align: center; font-size: 11.5px; color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span> Research Agent</div>
+  <div class="status-pill" id="statusPill"><span class="led"></span><span id="statusText">Idle</span></div>
+</div>
+
+<div class="shell">
+
+  <div class="controls">
+    <input type="text" id="topicInput" placeholder="Enter a research topic…" value="AI agents in enterprise software" />
+    <button class="run-btn" id="runBtn">Run Agent</button>
+    <div class="chips">
+      <span class="chip" data-topic="Quantum computing in drug discovery">Quantum computing in drug discovery</span>
+      <span class="chip" data-topic="Impact of remote work on urban real estate">Remote work &amp; urban real estate</span>
+      <span class="chip" data-topic="AI agents in enterprise software">AI agents in enterprise software</span>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat"><div class="label">Steps Taken</div><div class="value accent" id="statSteps">0</div></div>
+    <div class="stat"><div class="label">Tool Calls</div><div class="value tool" id="statTools">0</div></div>
+    <div class="stat"><div class="label">Sources Found</div><div class="value good" id="statSources">0</div></div>
+    <div class="stat"><div class="label">Elapsed</div><div class="value" id="statTime">0.0s</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-header"><h2>Agent Reasoning Timeline</h2></div>
+      <div class="card-body">
+        <div class="timeline" id="timeline">
+          <div class="report-empty">
+            <div class="big-icon">&#9679;</div>
+            Enter a topic and click "Run Agent" to watch it plan, search, and reason step by step.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Final Report</h2></div>
+      <div class="card-body">
+        <div id="reportArea">
+          <div class="report-empty">
+            <div class="big-icon">&#9636;</div>
+            The synthesized, cited report will appear here once the agent finishes researching.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Demo mode — agent reasoning is scripted for demonstration; no external API calls are made.</div>
+</div>
+
+<script>
+const topicInput = document.getElementById('topicInput');
+const runBtn = document.getElementById('runBtn');
+const timeline = document.getElementById('timeline');
+const reportArea = document.getElementById('reportArea');
+const statusPill = document.getElementById('statusPill');
+const statusText = document.getElementById('statusText');
+const statSteps = document.getElementById('statSteps');
+const statTools = document.getElementById('statTools');
+const statSources = document.getElementById('statSources');
+const statTime = document.getElementById('statTime');
+
+let startTime = 0;
+let timerHandle = null;
+let stepCount = 0;
+let toolCount = 0;
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    topicInput.value = chip.dataset.topic;
+  });
+});
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function iconFor(type) {
+  return { plan: '&#9673;', thought: '&#9998;', tool_call: '&#9881;', tool_result: '&#10003;', report: '&#9733;' }[type] || '&#8226;';
+}
+
+function addStep(type, labelText, bodyHtml) {
+  if (timeline.querySelector('.report-empty')) timeline.innerHTML = '';
+  const el = document.createElement('div');
+  el.className = 'step';
+  el.innerHTML = `
+    <div class="step-icon ${type}">${iconFor(type)}</div>
+    <div class="step-content">
+      <div class="step-label">${labelText}</div>
+      <div class="step-text">${bodyHtml}</div>
+    </div>`;
+  timeline.appendChild(el);
+  timeline.scrollTop = timeline.scrollHeight;
+}
+
+function renderReportMarkdown(md) {
+  const lines = md.split('\n');
+  let html = '';
+  for (const line of lines) {
+    if (line.startsWith('# ')) html += `<h1>${escapeHtml(line.slice(2))}</h1>`;
+    else if (line.startsWith('## ')) html += `<h2>${escapeHtml(line.slice(3))}</h2>`;
+    else if (line.trim() === '') continue;
+    else html += `<p>${escapeHtml(line)}</p>`;
+  }
+  return html;
+}
+
+function setStatus(mode, text) {
+  statusPill.className = 'status-pill ' + mode;
+  statusText.textContent = text;
+}
+
+function resetDashboard() {
+  stepCount = 0; toolCount = 0;
+  statSteps.textContent = '0';
+  statTools.textContent = '0';
+  statSources.textContent = '0';
+  statTime.textContent = '0.0s';
+  timeline.innerHTML = '';
+  reportArea.innerHTML = '<div class="report-empty"><div class="big-icon">&#9203;</div>Researching…</div>';
+}
+
+function startTimer() {
+  startTime = Date.now();
+  if (timerHandle) clearInterval(timerHandle);
+  timerHandle = setInterval(() => {
+    statTime.textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+  }, 100);
+}
+
+function stopTimer() {
+  if (timerHandle) clearInterval(timerHandle);
+}
+
+function runAgent() {
+  const topic = topicInput.value.trim() || 'AI agents in enterprise software';
+  runBtn.disabled = true;
+  setStatus('working', 'Agent working…');
+  resetDashboard();
+  startTimer();
+
+  const es = new EventSource('/api/run?topic=' + encodeURIComponent(topic));
+
+  es.addEventListener('plan', (e) => {
+    const data = JSON.parse(e.data);
+    stepCount++; statSteps.textContent = stepCount;
+    if (data.subquestions) {
+      const list = data.subquestions.map(q => `<li>${escapeHtml(q)}</li>`).join('');
+      addStep('plan', 'Plan', `Research plan created:<ul style="margin:6px 0 0 18px; padding:0;">${list}</ul>`);
+    } else {
+      addStep('plan', 'Plan', escapeHtml(data.message));
+    }
+  });
+
+  es.addEventListener('thought', (e) => {
+    const data = JSON.parse(e.data);
+    stepCount++; statSteps.textContent = stepCount;
+    addStep('thought', `Reasoning · step ${data.step}`, escapeHtml(data.message));
+  });
+
+  es.addEventListener('tool_call', (e) => {
+    const data = JSON.parse(e.data);
+    toolCount++; statTools.textContent = toolCount;
+    const argStr = Object.entries(data.args).map(([k,v]) => `${k}="${v}"`).join(', ');
+    addStep('tool_call', `Tool Call · step ${data.step}`, `Calling <code>${escapeHtml(data.tool)}(${escapeHtml(argStr)})</code>`);
+  });
+
+  es.addEventListener('tool_result', (e) => {
+    const data = JSON.parse(e.data);
+    if (data.tool === 'web_search') {
+      const results = data.result.results || [];
+      statSources.textContent = document.querySelectorAll('.source-card').length || results.length;
+      const items = results.map(r => `
+        <div class="result-item">
+          <span class="r-cite">[${r.citation}]</span><span class="r-title">${escapeHtml(r.title)}</span>
+          <div class="r-url">${escapeHtml(r.url)}</div>
+        </div>`).join('');
+      addStep('tool_result', `Tool Result · step ${data.step}`, `Found ${results.length} result(s):<div class="result-list">${items}</div>`);
+    } else if (data.tool === 'fetch_page') {
+      addStep('tool_result', `Tool Result · step ${data.step}`, `Fetched and read page content (${(data.result.content||'').length} chars).`);
+    }
+  });
+
+  es.addEventListener('report', (e) => {
+    const data = JSON.parse(e.data);
+    reportArea.innerHTML = `<div class="report-body">${renderReportMarkdown(data.content)}</div>`;
+    const sourcesHtml = data.sources.map((s, i) => `
+      <div class="source-card">
+        <div class="source-num">${i+1}</div>
+        <div>
+          <a href="#" onclick="return false;">${escapeHtml(s.title)}</a>
+          <div class="s-url">${escapeHtml(s.url)}</div>
+        </div>
+      </div>`).join('');
+    reportArea.innerHTML += `<div class="sources-grid">${sourcesHtml}</div>`;
+    statSources.textContent = data.sources.length;
+    addStep('report', 'Report', 'Final report synthesized and written with citations. See panel on the right.');
+  });
+
+  es.addEventListener('error', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      addStep('thought', 'Error', escapeHtml(data.message));
+    } catch (_) {}
+  });
+
+  es.addEventListener('close', () => {
+    es.close();
+    stopTimer();
+    setStatus('live', 'Idle');
+    runBtn.disabled = false;
+  });
+
+  es.onerror = () => {
+    es.close();
+    stopTimer();
+    setStatus('live', 'Idle');
+    runBtn.disabled = false;
+  };
+}
+
+runBtn.addEventListener('click', runAgent);
+topicInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runAgent(); });
+
+setStatus('live', 'Idle');
+</script>
+</body>
+</html>
